@@ -73,6 +73,13 @@ func (t *TorController) processNextItem() bool {
 	return true
 }
 
+func (t *TorController) isTorIngress(ing *v1beta1.Ingress) bool {
+	if class, exists := ing.Annotations["kubernetes.io/ingress.class"]; exists {
+		return class == "tor"
+	}
+	return false
+}
+
 // syncTor updates the tor config with the current set of ingresses
 func (t *TorController) syncTor(key string) error {
 	obj, exists, err := t.indexer.GetByKey(key)
@@ -91,6 +98,12 @@ func (t *TorController) syncTor(key string) error {
 			// Note that you also have to check the uid if you have a local controlled resource, which
 			// is dependent on the actual instance, to detect that a Ingress was recreated with the same name
 			fmt.Printf("Sync/Add/Update for Ingress %s, namespace %s\n", o.GetName(), o.GetNamespace())
+
+			if !t.isTorIngress(o) {
+				fmt.Println("this isn't a tor ingress")
+				return nil
+			}
+
 			backend := o.Spec.Backend
 			if backend == nil {
 				fmt.Println("sorry, only basic backend supported")
