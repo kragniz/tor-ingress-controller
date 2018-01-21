@@ -25,8 +25,8 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/api/core/v1"
-	//meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,15 +43,19 @@ type TorController struct {
 	queue    workqueue.RateLimitingInterface
 	informer cache.Controller
 
+	clientset *kubernetes.Clientset
+
 	torCfg tor.TorConfiguration
+	tor    tor.Tor
 }
 
-func NewTorController(queue workqueue.RateLimitingInterface, indexer cache.Indexer, informer cache.Controller) *TorController {
+func NewTorController(queue workqueue.RateLimitingInterface, indexer cache.Indexer, informer cache.Controller, clientset *kubernetes.Clientset) *TorController {
 	return &TorController{
-		informer: informer,
-		indexer:  indexer,
-		queue:    queue,
-		torCfg:   tor.NewTorConfiguration(),
+		informer:  informer,
+		indexer:   indexer,
+		queue:     queue,
+		clientset: clientset,
+		torCfg:    tor.NewTorConfiguration(),
 	}
 }
 
@@ -92,6 +96,8 @@ func (t *TorController) syncTor(key string) error {
 		fmt.Printf("Ingress %s does not exist anymore\n", key)
 		t.torCfg.RemoveService(key)
 		fmt.Println(t.torCfg.GetConfiguration())
+		t.torCfg.SaveConfiguration()
+		t.tor.Reload()
 	} else {
 		switch o := obj.(type) {
 		case *v1beta1.Ingress:
@@ -108,8 +114,17 @@ func (t *TorController) syncTor(key string) error {
 			if backend == nil {
 				fmt.Println("sorry, only basic backend supported")
 			} else {
-				t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), int(backend.ServicePort.IntVal), 80)
+				service, err := t.clientset.CoreV1().Services(o.GetNamespace()).Get(backend.ServiceName, meta_v1.GetOptions{})
+				if err != nil {
+					fmt.Errorf("service not found!", err)
+				}
+
+				clusterIP := service.Spec.ClusterIP
+
+				t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), clusterIP, int(backend.ServicePort.IntVal), 80)
 				fmt.Println(t.torCfg.GetConfiguration())
+				t.torCfg.SaveConfiguration()
+				t.tor.Reload()
 			}
 		}
 	}
@@ -223,7 +238,9 @@ func main() {
 		},
 	}, cache.Indexers{})
 
-	controller := NewTorController(queue, indexer, informer)
+	controller := NewTorController(queue, indexer, informer, clientset)
+
+	controller.tor.Start()
 
 	// Now let's start the controller
 	stop := make(chan struct{})
