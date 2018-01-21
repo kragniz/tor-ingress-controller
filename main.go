@@ -62,16 +62,14 @@ func (c *TorController) processNextItem() bool {
 	defer c.queue.Done(key)
 
 	// Invoke the method containing the business logic
-	err := c.syncToStdout(key.(string))
+	err := c.syncTor(key.(string))
 	// Handle the error if something went wrong during the execution of the business logic
 	c.handleErr(err, key)
 	return true
 }
 
-// syncToStdout is the business logic of the controller. In this controller it simply prints
-// information about the ingress to stdout. In case an error happened, it has to simply return the error.
-// The retry logic should not be part of the business logic.
-func (c *TorController) syncToStdout(key string) error {
+// syncTor updates the tor config with the current set of ingresses
+func (c *TorController) syncTor(key string) error {
 	obj, exists, err := c.indexer.GetByKey(key)
 	if err != nil {
 		glog.Errorf("Fetching object with key %s from store failed with %v", key, err)
@@ -79,12 +77,14 @@ func (c *TorController) syncToStdout(key string) error {
 	}
 
 	if !exists {
-		// Below we will warm up our cache with a Ingress, so that we will see a delete for one ingress
 		fmt.Printf("Ingress %s does not exist anymore\n", key)
 	} else {
-		// Note that you also have to check the uid if you have a local controlled resource, which
-		// is dependent on the actual instance, to detect that a Ingress was recreated with the same name
-		fmt.Printf("Sync/Add/Update for Ingress %s\n", obj.(*v1beta1.Ingress).GetName())
+		switch o := obj.(type) {
+		case *v1beta1.Ingress:
+			// Note that you also have to check the uid if you have a local controlled resource, which
+			// is dependent on the actual instance, to detect that a Ingress was recreated with the same name
+			fmt.Printf("Sync/Add/Update for Ingress %s, namespace %s\n", o.GetName(), o.GetNamespace())
+		}
 	}
 	return nil
 }
