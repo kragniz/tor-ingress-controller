@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 )
 
 type Tor struct {
@@ -12,6 +11,8 @@ type Tor struct {
 }
 
 func (t *Tor) Start() {
+	fmt.Println("starting tor...")
+
 	t.cmd = exec.Command("tor", "-f", "/run/tor/torfile")
 	t.cmd.Stdout = os.Stdout
 	t.cmd.Stderr = os.Stderr
@@ -24,8 +25,7 @@ func (t *Tor) Start() {
 }
 
 func (t *Tor) Reload() {
-	t.cmd.Process.Signal(syscall.SIGHUP)
+	fmt.Println("reloading tor...")
 	t.cmd.Process.Signal(os.Kill)
-
 	t.Start()
 }

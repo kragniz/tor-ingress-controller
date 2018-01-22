@@ -121,10 +121,17 @@ func (t *TorController) syncTor(key string) error {
 
 				clusterIP := service.Spec.ClusterIP
 
-				t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), clusterIP, int(backend.ServicePort.IntVal), 80)
+				s := t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), clusterIP, int(backend.ServicePort.IntVal), 80)
 				fmt.Println(t.torCfg.GetConfiguration())
 				t.torCfg.SaveConfiguration()
 				t.tor.Reload()
+
+				fmt.Println("finding tor hostname")
+				hostname, err := s.FindHostname()
+
+				if err == nil {
+					fmt.Println("hostname found! ", hostname)
+				}
 			}
 		}
 	}
