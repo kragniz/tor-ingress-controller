@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"text/template"
 )
 
@@ -89,5 +90,5 @@ func (s *HiddenService) FindHostname() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	return strings.Trim(string(data), "\n"), nil
 }

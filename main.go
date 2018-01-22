@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/kragniz/tor-ingress-controller/tor"
@@ -116,7 +117,7 @@ func (t *TorController) syncTor(key string) error {
 			} else {
 				service, err := t.clientset.CoreV1().Services(o.GetNamespace()).Get(backend.ServiceName, meta_v1.GetOptions{})
 				if err != nil {
-					fmt.Errorf("service not found!", err)
+					fmt.Printf("service not found! %v", err)
 				}
 
 				clusterIP := service.Spec.ClusterIP
@@ -126,11 +127,39 @@ func (t *TorController) syncTor(key string) error {
 				t.torCfg.SaveConfiguration()
 				t.tor.Reload()
 
-				fmt.Println("finding tor hostname")
-				hostname, err := s.FindHostname()
+				ingressClient := t.clientset.ExtensionsV1beta1().Ingresses(o.Namespace)
 
-				if err == nil {
-					fmt.Println("hostname found! ", hostname)
+				for i := 0; i < 10; i++ {
+					time.Sleep(1 * time.Second)
+
+					fmt.Println("finding tor hostname")
+					hostname, err := s.FindHostname()
+
+					if err == nil {
+						fmt.Println("hostname found! ", hostname)
+
+						retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+							result, getErr := ingressClient.Get(o.Name, meta_v1.GetOptions{})
+							if getErr != nil {
+								panic(fmt.Errorf("Failed to get latest version of Ingress: %v", getErr))
+							}
+
+							fmt.Println(result.Status)
+
+							result.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{{Hostname: hostname}}
+
+							_, updateErr := ingressClient.UpdateStatus(result)
+							if updateErr != nil {
+								panic(fmt.Errorf("Update error: %v", updateErr))
+							}
+							return updateErr
+						})
+						if retryErr != nil {
+							panic(fmt.Errorf("Update failed: %v", retryErr))
+						} else {
+							break
+						}
+					}
 				}
 			}
 		}
