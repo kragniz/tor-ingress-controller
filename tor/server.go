@@ -45,5 +45,6 @@ func (t *Tor) Reload() {
 	fmt.Println("reloading tor...")
 
 	t.cmd.Process.Signal(syscall.SIGTERM)
+	t.cmd.Process.Wait()
 	t.Start()
 }
