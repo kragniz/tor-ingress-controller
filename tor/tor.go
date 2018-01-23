@@ -22,13 +22,16 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"text/template"
 )
 
 const configFormat = `
+SocksPort 0
+
 {{ range .HiddenServices }}
-HiddenServiceDir /run/tor/{{ .ServiceNamespace}}_{{ .ServiceName }}/
+HiddenServiceDir {{ .ServiceDir }}
 HiddenServicePort {{ .PublicPort }} {{ .ServiceClusterIP }}:{{ .ServicePort }}
 {{ end }}
 `
@@ -39,6 +42,7 @@ type HiddenService struct {
 	ServiceName      string
 	ServiceNamespace string
 	ServiceClusterIP string
+	ServiceDir       string
 	ServicePort      int
 	PublicPort       int
 }
@@ -58,6 +62,7 @@ func (t *TorConfiguration) AddService(name, serviceName, namespace, clusterIP st
 		ServiceName:      serviceName,
 		ServiceNamespace: namespace,
 		ServiceClusterIP: clusterIP,
+		ServiceDir:       fmt.Sprintf("/run/tor/%s_%s_%s_%d/", namespace, name, serviceName, servicePort),
 		ServicePort:      servicePort,
 		PublicPort:       publicPort,
 	}
@@ -66,6 +71,10 @@ func (t *TorConfiguration) AddService(name, serviceName, namespace, clusterIP st
 }
 
 func (t *TorConfiguration) RemoveService(name string) {
+	err := os.RemoveAll(t.HiddenServices[name].ServiceDir)
+	if err != nil {
+		fmt.Printf("error removing dir: %v", err)
+	}
 	delete(t.HiddenServices, name)
 }
 
@@ -86,7 +95,7 @@ func (t *TorConfiguration) SaveConfiguration() {
 }
 
 func (s *HiddenService) FindHostname() (string, error) {
-	data, err := ioutil.ReadFile(fmt.Sprintf("/run/tor/%s_%s/hostname", s.ServiceNamespace, s.ServiceName))
+	data, err := ioutil.ReadFile(path.Join(s.ServiceDir, "/hostname"))
 	if err != nil {
 		return "", err
 	}
