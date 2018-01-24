@@ -122,7 +122,7 @@ func (t *TorController) syncTor(key string) error {
 
 				clusterIP := service.Spec.ClusterIP
 
-				s := t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), clusterIP, int(backend.ServicePort.IntVal), 80)
+				s := t.torCfg.AddService(o.GetName(), backend.ServiceName, o.GetNamespace(), clusterIP, int(backend.ServicePort.IntVal), int(backend.ServicePort.IntVal))
 				fmt.Println(t.torCfg.GetConfiguration())
 				t.torCfg.SaveConfiguration()
 				t.tor.Reload()
