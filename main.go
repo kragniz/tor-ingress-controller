@@ -140,14 +140,9 @@ func (t *TorController) syncTor(key string) error {
 				ingressClient := t.clientset.ExtensionsV1beta1().Ingresses(o.Namespace)
 
 				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					result, getErr := ingressClient.Get(o.Name, meta_v1.GetOptions{})
-					if getErr != nil {
-						panic(fmt.Errorf("Failed to get latest version of Ingress: %v", getErr))
-					}
+					o.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{{Hostname: hostname}}
 
-					result.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{{Hostname: hostname}}
-
-					_, updateErr := ingressClient.UpdateStatus(result)
+					_, updateErr := ingressClient.UpdateStatus(o)
 					if updateErr != nil {
 						panic(fmt.Errorf("Update error: %v", updateErr))
 					}
