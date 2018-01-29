@@ -20,6 +20,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"path"
 	"time"
 
 	"github.com/golang/glog"
@@ -85,6 +87,19 @@ func (t *TorController) isTorIngress(ing *v1beta1.Ingress) bool {
 	return false
 }
 
+func (t *TorController) getTorPrivateKey(ing *v1beta1.Ingress) (*string, error) {
+	if keyName, exists := ing.Annotations["kubernetes.io/ingress.tor-private-key"]; exists {
+		secret, err := t.clientset.CoreV1().Secrets(ing.Namespace).Get(keyName, meta_v1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range secret.StringData {
+			return &item, nil
+		}
+	}
+	return nil, nil
+}
+
 // syncTor updates the tor config with the current set of ingresses
 func (t *TorController) syncTor(key string) error {
 	obj, exists, err := t.indexer.GetByKey(key)
@@ -130,6 +145,22 @@ func (t *TorController) syncTor(key string) error {
 					int(backend.ServicePort.IntVal),
 					int(backend.ServicePort.IntVal),
 				)
+
+				secret, err := t.getTorPrivateKey(o)
+				if err != nil {
+					fmt.Printf("error fetching private key! %v", err)
+				} else {
+					if secret != nil {
+						os.MkdirAll(s.ServiceDir, 0700)
+
+						file, err := os.Create(path.Join(s.ServiceDir, "private-key"))
+						if err != nil {
+							return err
+						}
+
+						file.WriteString(*secret)
+					}
+				}
 
 				fmt.Println(t.torCfg.GetConfiguration())
 				t.torCfg.SaveConfiguration()
