@@ -132,7 +132,7 @@ func (t *TorController) syncTor(key string) error {
 			} else {
 				service, err := t.clientset.CoreV1().Services(o.GetNamespace()).Get(backend.ServiceName, meta_v1.GetOptions{})
 				if err != nil {
-					fmt.Printf("service not found! %v", err)
+					return err
 				}
 
 				clusterIP := service.Spec.ClusterIP
@@ -148,7 +148,7 @@ func (t *TorController) syncTor(key string) error {
 
 				secret, err := t.getTorPrivateKey(o)
 				if err != nil {
-					fmt.Printf("error fetching private key! %v", err)
+					return err
 				} else {
 					if secret != nil {
 						os.MkdirAll(s.ServiceDir, 0700)
@@ -181,11 +181,8 @@ func (t *TorController) syncTor(key string) error {
 				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 					o.Status.LoadBalancer.Ingress = []v1.LoadBalancerIngress{{Hostname: hostname}}
 
-					_, updateErr := ingressClient.UpdateStatus(o)
-					if updateErr != nil {
-						panic(fmt.Errorf("Update error: %v", updateErr))
-					}
-					return updateErr
+					_, err := ingressClient.UpdateStatus(o)
+					return err
 				})
 				if retryErr != nil {
 					panic(fmt.Errorf("Update failed: %v", retryErr))
