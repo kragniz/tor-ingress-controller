@@ -18,3 +18,12 @@ spec:
     serviceName: test-service
     servicePort: 80
 ```
+
+Quickstart
+----------
+
+Install into your cluster:
+
+```bash
+$ kubectl apply -f hack/example-controller-deployment.yaml
+```
