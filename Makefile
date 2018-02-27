@@ -1,4 +1,6 @@
-all: vendor
+all: tor-ingress-controller
+
+tor-ingress-controller: vendor main.go tor/*.go
 	go build -i -o tor-ingress-controller
 
 vendor: Gopkg.toml
