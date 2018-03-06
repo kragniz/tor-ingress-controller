@@ -43,7 +43,8 @@ import (
 
 const (
 	annotationName           = "kubernetes.io/ingress.class"
-	privateKeyAnnotationName = "kragniz.eu/tor-private-key"
+	base                     = "tor.kragniz.eu/"
+	privateKeyAnnotationName = base + "private-key-secret"
 )
 
 type TorController struct {
