@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tor-ingress-controller
+  namespace: kube-system
+  labels:
+    app: tor-ingress-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tor-ingress-controller
+    spec:
+      containers:
+        - name: tor-ingress-controller
+          image: kragniz/tor-ingress-controller:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi

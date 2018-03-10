@@ -41,6 +41,12 @@ import (
 	"github.com/kragniz/tor-ingress-controller/tor"
 )
 
+const (
+	annotationName           = "kubernetes.io/ingress.class"
+	base                     = "tor.kragniz.eu/"
+	privateKeyAnnotationName = base + "private-key-secret"
+)
+
 type TorController struct {
 	indexer  cache.Indexer
 	queue    workqueue.RateLimitingInterface
@@ -81,23 +87,23 @@ func (t *TorController) processNextItem() bool {
 }
 
 func (t *TorController) isTorIngress(ing *v1beta1.Ingress) bool {
-	if class, exists := ing.Annotations["kubernetes.io/ingress.class"]; exists {
+	if class, exists := ing.Annotations[annotationName]; exists {
 		return class == "tor"
 	}
 	return false
 }
 
-func (t *TorController) getTorPrivateKey(ing *v1beta1.Ingress) (*string, error) {
-	if keyName, exists := ing.Annotations["kubernetes.io/ingress.tor-private-key"]; exists {
+func (t *TorController) getTorPrivateKey(ing *v1beta1.Ingress) (string, error) {
+	if keyName, exists := ing.Annotations[privateKeyAnnotationName]; exists {
 		secret, err := t.clientset.CoreV1().Secrets(ing.Namespace).Get(keyName, meta_v1.GetOptions{})
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		for _, item := range secret.StringData {
-			return &item, nil
+		for _, item := range secret.Data {
+			return string(item), nil
 		}
 	}
-	return nil, nil
+	return "", nil
 }
 
 // syncTor updates the tor config with the current set of ingresses
@@ -150,15 +156,15 @@ func (t *TorController) syncTor(key string) error {
 				if err != nil {
 					return err
 				} else {
-					if secret != nil {
+					if secret != "" {
 						os.MkdirAll(s.ServiceDir, 0700)
 
-						file, err := os.Create(path.Join(s.ServiceDir, "private-key"))
+						file, err := os.Create(path.Join(s.ServiceDir, "private_key"))
 						if err != nil {
 							return err
 						}
 
-						file.WriteString(*secret)
+						file.WriteString(secret)
 					}
 				}
 
