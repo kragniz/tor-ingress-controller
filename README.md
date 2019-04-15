@@ -1,6 +1,8 @@
 tor-ingress-controller
 ======================
 
+# This is not maintained, use [kragniz/tor-controller](https://github.com/kragniz/tor-controller) instead
+
 A poorly written ingress controller to expose kubernetes services as [onion
 services](https://www.torproject.org/docs/onion-services) on the tor network.
 
